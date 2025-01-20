@@ -41,11 +41,6 @@ export default function Home() {
   });
 
   const handleCSVUpload = (file) => {
-    if (file.type !== "text/csv") {
-      alert("Please upload a valid CSV file.");
-      return;
-    }
-
     setFileName(file.name);
 
     Papa.parse(file, {
