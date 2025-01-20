@@ -1,19 +1,17 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { createPublicClient, custom, encodeFunctionData, parseUnits } from 'viem';
-import { useDropzone } from 'react-dropzone';
-import Papa from 'papaparse';
+import { useState, useEffect } from "react";
+import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { createPublicClient, custom, encodeFunctionData, parseUnits } from "viem";
+import { useDropzone } from "react-dropzone";
+import Papa from "papaparse";
 
-// Dirección de tu contrato
-const ContractAddress = "0x2c7d837a83356B5B9CACbf2Fb5FaC0F434B787Eb"; 
+const ContractAddress = "0x2c7d837a83356B5B9CACbf2Fb5FaC0F434B787Eb";
 
-// Tamaño del lote
 const BATCH_SIZE = 500;
 
 export default function Home() {
-  const account = useAccount(); // Obtener la cuenta conectada
+  const account = useAccount();
   const address = account.address;
   const isConnected = account.isConnected;
 
@@ -22,7 +20,7 @@ export default function Home() {
   const [tokenAddress, setTokenAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [csvData, setCsvData] = useState(null);
-  const [fileName, setFileName] = useState(""); // Nombre del archivo cargado
+  const [fileName, setFileName] = useState("");
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -38,17 +36,17 @@ export default function Home() {
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: (acceptedFiles) => handleCSVUpload(acceptedFiles[0]),
-    accept: '.csv',
-    onDropRejected: () => alert("Only CSV files are accepted.")
+    accept: ".csv",
+    onDropRejected: () => alert("Only CSV files are accepted."),
   });
 
   const handleCSVUpload = (file) => {
-    if (file.type !== 'text/csv') {
-      alert('Please upload a valid CSV file.');
+    if (file.type !== "text/csv") {
+      alert("Please upload a valid CSV file.");
       return;
     }
 
-    setFileName(file.name); // Guardar el nombre del archivo
+    setFileName(file.name);
 
     Papa.parse(file, {
       complete: (result) => {
@@ -63,13 +61,12 @@ export default function Home() {
 
     while (receipt === null) {
       receipt = await window.ethereum.request({
-        method: 'eth_getTransactionReceipt',
+        method: "eth_getTransactionReceipt",
         params: [txHash],
       });
 
-      // Si el recibo es null, esperar 2 segundos y volver a intentarlo
       if (receipt === null) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
     }
 
@@ -78,119 +75,134 @@ export default function Home() {
 
   const handleSendTokens = async () => {
     if (!csvData || !tokenAddress || !amount || !isConnected) return;
-  
-    const recipients = csvData.map(row => row[0]);
-  
-    // Dividir los destinatarios en lotes de tamaño BATCH_SIZE
+
+    const recipients = csvData.map((row) => row[0]);
     const recipientBatches = [];
     for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
       recipientBatches.push(recipients.slice(i, i + BATCH_SIZE));
     }
-  
+
     try {
-      // Verificar si existe `window.ethereum`
       if (!window.ethereum) {
-        throw new Error('Ethereum provider not found');
+        throw new Error("Ethereum provider not found");
       }
-  
-      // Obtener la cuenta de MetaMask
-      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-      const senderAddress = accounts[0];
-  
-      // Crear el cliente de Viem con el proveedor de la cuenta conectada (MetaMask)
+
+      await window.ethereum.request({ method: "eth_requestAccounts" });
+
       const client = createPublicClient({
-        chain: account.chain.id, // Usamos la red de la cuenta conectada
-        transport: custom(window.ethereum), // Usamos el transporte para MetaMask
+        chain: account.chain.id,
+        transport: custom(window.ethereum),
       });
-  
-      // Calcular el monto total para la aprobación (solo se hace una vez)
-      const totalAmount = parseUnits((amount * recipients.length).toString(), 18);
-  
-      // Codificar los datos para la transacción de aprobación (solo se hace una vez)
-      const approveData = encodeFunctionData({
+
+      const allowanceData = encodeFunctionData({
         abi: [
           {
-            "name": "approve",
-            "type": "function",
-            "inputs": [
-              { "name": "spender", "type": "address" },
-              { "name": "amount", "type": "uint256" }
-            ]
-          }
+            name: "allowance",
+            type: "function",
+            inputs: [
+              { name: "owner", type: "address" },
+              { name: "spender", type: "address" },
+            ],
+            outputs: [{ name: "remaining", type: "uint256" }],
+          },
         ],
-        functionName: "approve",
-        args: [ContractAddress, totalAmount]
+        functionName: "allowance",
+        args: [address, ContractAddress],
       });
-  
-      // Preparar la transacción de aprobación
-      const approveTx = {
+
+      const allowanceResponse = await client.call({
         to: tokenAddress,
-        from: senderAddress,
-        data: approveData,
-        value: 0n,
-      };
-  
-      // Enviar la transacción de aprobación
-      const approveTxHash = await window.ethereum.request({
-        method: 'eth_sendTransaction',
-        params: [approveTx],
+        data: allowanceData,
       });
-  
-      console.log("Approval transaction sent: ", approveTxHash);
-  
-      // Esperar la confirmación de la transacción de aprobación
-      const approveReceipt = await waitForTransactionConfirmation(approveTxHash);
-      if (approveReceipt.status !== '0x1') {
-        throw new Error('Approval transaction failed');
+
+      const allowance = allowanceResponse;
+
+      const requiredAmount = parseUnits((amount * recipients.length).toString(), 18);
+
+      if (allowance < requiredAmount) {
+        const approveData = encodeFunctionData({
+          abi: [
+            {
+              name: "approve",
+              type: "function",
+              inputs: [
+                { name: "spender", type: "address" },
+                { name: "amount", type: "uint256" },
+              ],
+            },
+          ],
+          functionName: "approve",
+          args: [ContractAddress, requiredAmount],
+        });
+
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+        const senderAddress = accounts[0];
+
+        const approveTx = {
+          to: tokenAddress,
+          from: senderAddress,
+          data: approveData,
+          value: 0n,
+        };
+
+        const approveTxHash = await window.ethereum.request({
+          method: "eth_sendTransaction",
+          params: [approveTx],
+        });
+
+        console.log("Approval transaction sent: ", approveTxHash);
+
+        const approveReceipt = await waitForTransactionConfirmation(approveTxHash);
+
+        if (approveReceipt.status !== "0x1") {
+          throw new Error("Approval transaction failed");
+        }
+
+        console.log("Approval transaction confirmed");
+      } else {
+        console.log("Allowance is sufficient, skipping approval.");
       }
-  
-      console.log("Approval transaction confirmed");
-  
-      // Enviar los tokens en los lotes
+
       for (let i = 0; i < recipientBatches.length; i++) {
         const batch = recipientBatches[i];
-  
-        // Codificar los datos para la transacción de envío de tokens (utiliza la misma cantidad para todos los destinatarios)
+
         const sendData = encodeFunctionData({
           abi: [
             {
-              "name": "sendBatchFunds",
-              "type": "function",
-              "inputs": [
-                { "name": "tokenAddress", "type": "address" },
-                { "name": "recipients", "type": "address[]" },
-                { "name": "amount", "type": "uint256" }
-              ]
-            }
+              name: "sendBatchFunds",
+              type: "function",
+              inputs: [
+                { name: "tokenAddress", type: "address" },
+                { name: "recipients", type: "address[]" },
+                { name: "amount", type: "uint256" },
+              ],
+            },
           ],
           functionName: "sendBatchFunds",
-          args: [tokenAddress, batch, parseUnits(amount, 18)] // Utiliza la misma cantidad para todos
+          args: [tokenAddress, batch, parseUnits(amount, 18)],
         });
-  
-        // Preparar la transacción de envío de tokens
+
         const sendTx = {
           to: ContractAddress,
-          from: senderAddress,
+          from: address,
           data: sendData,
           value: 0n,
         };
-  
-        // Enviar la transacción de envío de tokens
+
         const sendTxHash = await window.ethereum.request({
-          method: 'eth_sendTransaction',
+          method: "eth_sendTransaction",
           params: [sendTx],
         });
-  
+
         console.log("Batch tokens sent (batch " + (i + 1) + "): ", sendTxHash);
       }
-  
+
       alert("Tokens successfully sent!");
     } catch (err) {
       console.error("Error sending tokens:", err);
       alert(`Error: ${err.message}`);
     }
   };
-  
 
   if (!isClient) return null;
 
@@ -229,7 +241,7 @@ export default function Home() {
 
               <div {...getRootProps()} className="dropzone w-full border-2 border-gray-600 border-dashed rounded-lg p-6 text-center bg-gray-700 hover:bg-gray-600">
                 <input {...getInputProps()} />
-                <p className="text-gray-400">{fileName ? `File loaded: ${fileName}` : 'Drag & Drop your CSV here, or click to select a file'}</p>
+                <p className="text-gray-400">{fileName ? `File loaded: ${fileName}` : "Drag & Drop your CSV here, or click to select a file"}</p>
               </div>
 
               <div className="space-x-4 flex justify-center mt-4">
