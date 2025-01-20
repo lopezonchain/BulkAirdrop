@@ -8,7 +8,6 @@ import Papa from "papaparse";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 const ContractAddress = "0x2c7d837a83356B5B9CACbf2Fb5FaC0F434B787Eb";
-
 const BATCH_SIZE = 500;
 
 export default function Home() {
