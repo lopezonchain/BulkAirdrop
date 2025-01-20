@@ -75,26 +75,28 @@ export default function Home() {
 
   const handleSendTokens = async () => {
     if (!csvData || !tokenAddress || !amount || !isConnected) return;
-
+  
     const recipients = csvData.map((row) => row[0]);
     const recipientBatches = [];
     for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
       recipientBatches.push(recipients.slice(i, i + BATCH_SIZE));
     }
-
+  
     try {
       if (!window.ethereum) {
         throw new Error("Ethereum provider not found");
       }
-
+  
       await window.ethereum.request({ method: "eth_requestAccounts" });
-
+  
       const client = createPublicClient({
         chain: account.chain.id,
         transport: custom(window.ethereum),
       });
-
-      const allowanceData = encodeFunctionData({
+  
+      // Obtener el allowance usando el ABI del contrato
+      const allowanceResponse = await client.readContract({
+        address: tokenAddress,
         abi: [
           {
             name: "allowance",
@@ -104,21 +106,19 @@ export default function Home() {
               { name: "spender", type: "address" },
             ],
             outputs: [{ name: "remaining", type: "uint256" }],
+            stateMutability: "view",
           },
         ],
         functionName: "allowance",
         args: [address, ContractAddress],
       });
-
-      const allowanceResponse = await client.call({
-        to: tokenAddress,
-        data: allowanceData,
-      });
-
-      const allowance = allowanceResponse;
-
+  
+      console.log("Allowance from contract:", allowanceResponse);
+  
+      const allowance = BigInt(allowanceResponse);
+  
       const requiredAmount = parseUnits((amount * recipients.length).toString(), 18);
-
+  
       if (allowance < requiredAmount) {
         const approveData = encodeFunctionData({
           abi: [
@@ -134,38 +134,35 @@ export default function Home() {
           functionName: "approve",
           args: [ContractAddress, requiredAmount],
         });
-
-        const accounts = await window.ethereum.request({ method: "eth_accounts" });
-        const senderAddress = accounts[0];
-
+  
         const approveTx = {
           to: tokenAddress,
-          from: senderAddress,
+          from: address,
           data: approveData,
           value: 0n,
         };
-
+  
         const approveTxHash = await window.ethereum.request({
           method: "eth_sendTransaction",
           params: [approveTx],
         });
-
+  
         console.log("Approval transaction sent: ", approveTxHash);
-
+  
         const approveReceipt = await waitForTransactionConfirmation(approveTxHash);
-
+  
         if (approveReceipt.status !== "0x1") {
           throw new Error("Approval transaction failed");
         }
-
+  
         console.log("Approval transaction confirmed");
       } else {
         console.log("Allowance is sufficient, skipping approval.");
       }
-
+  
       for (let i = 0; i < recipientBatches.length; i++) {
         const batch = recipientBatches[i];
-
+  
         const sendData = encodeFunctionData({
           abi: [
             {
@@ -181,29 +178,29 @@ export default function Home() {
           functionName: "sendBatchFunds",
           args: [tokenAddress, batch, parseUnits(amount, 18)],
         });
-
+  
         const sendTx = {
           to: ContractAddress,
           from: address,
           data: sendData,
           value: 0n,
         };
-
+  
         const sendTxHash = await window.ethereum.request({
           method: "eth_sendTransaction",
           params: [sendTx],
         });
-
+  
         console.log("Batch tokens sent (batch " + (i + 1) + "): ", sendTxHash);
       }
-
+  
       alert("Tokens successfully sent!");
     } catch (err) {
       console.error("Error sending tokens:", err);
       alert(`Error: ${err.message}`);
     }
   };
-
+  
   if (!isClient) return null;
 
   return (
