@@ -5,6 +5,7 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { createPublicClient, custom, encodeFunctionData, parseUnits } from "viem";
 import { useDropzone } from "react-dropzone";
 import Papa from "papaparse";
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 const ContractAddress = "0x2c7d837a83356B5B9CACbf2Fb5FaC0F434B787Eb";
 
@@ -210,14 +211,9 @@ export default function Home() {
     <div className="flex justify-center items-center min-h-screen bg-gray-900 text-white">
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-lg">
         {!isConnected ? (
-          <div className="text-center">
-            <p className="mb-4">Please connect your wallet.</p>
-            <button
-              onClick={() => connect(connectors[0])}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md"
-            >
-              Connect Wallet
-            </button>
+          <div className="flex flex-col justify-center items-center h-full text-center">
+            <p className="mb-4">Connect the wallet that has the tokens for the airdrop</p>
+            <ConnectButton className="mx-auto" />
           </div>
         ) : (
           <div>
