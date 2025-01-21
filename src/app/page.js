@@ -89,7 +89,6 @@ export default function Home() {
         transport: custom(window.ethereum),
       });
   
-      // Obtener el allowance usando el ABI del contrato
       const allowanceResponse = await client.readContract({
         address: tokenAddress,
         abi: [
