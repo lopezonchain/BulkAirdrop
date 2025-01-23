@@ -51,12 +51,24 @@ export default function Home() {
   useEffect(() => {
     if (isConnected) {
       determineContractAddress();
-      fetchWhitelistStatus();
-      fetchWhitelistFee();
-      fetchWhitelistDuration();
+      updateWhitelistData();
       fetchOwner();
     }
   }, [isConnected, address, account.chain?.id]);
+
+  const updateWhitelistData = async () => {
+    setIsWhitelisted(false);
+    setWhitelistFee(0);
+    setWhitelistDuration(0);
+  
+    await Promise.all([
+      fetchWhitelistStatus(),
+      fetchWhitelistFee(),
+      fetchWhitelistDuration(),
+    ]);
+  
+    console.log("Whitelist data updated");
+  };
 
   const determineContractAddress = () => {
     const chainId = account.chain?.id;
