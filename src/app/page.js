@@ -9,7 +9,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 const CONTRACTS = {
   base: "0x66aC3D0cF653314F6ab797906d287d8F4D2a6667",
-  electroneum: "0x37B8c98c10bBABfCE2c00F52aB09623c710D6FE2", 
+  electroneum: "0x37B8c98c10bBABfCE2c00F52aB09623c710D6FE2",
 };
 
 const NETWORKS = {
@@ -43,6 +43,7 @@ export default function Home() {
   const [whitelistDuration, setWhitelistDuration] = useState(0);
   const [isOwner, setIsOwner] = useState(false);
   const [contractAddress, setContractAddress] = useState("");
+  const [isHelpVisible, setIsHelpVisible] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -60,13 +61,13 @@ export default function Home() {
     setIsWhitelisted(false);
     setWhitelistFee(0);
     setWhitelistDuration(0);
-  
+
     await Promise.all([
       fetchWhitelistStatus(),
       fetchWhitelistFee(),
       fetchWhitelistDuration(),
     ]);
-  
+
     console.log("Whitelist data updated");
   };
 
@@ -112,7 +113,7 @@ export default function Home() {
         functionName: "whitelistFee",
       });
 
-      setWhitelistFee(parseFloat(fee) / 1e18); 
+      setWhitelistFee(parseFloat(fee) / 1e18);
     } catch (error) {
       console.error("Error fetching whitelist fee:", error);
     }
@@ -220,6 +221,14 @@ export default function Home() {
     });
   };
 
+  const handleOpenHelp = () => {
+    setIsHelpVisible(true);
+  };
+
+  const handleCloseHelp = () => {
+    setIsHelpVisible(false);
+  };
+
   const calculateRemainingDays = () => {
     if (!whitelistExpiration) return 0;
 
@@ -243,14 +252,49 @@ export default function Home() {
           </div>
         ) : (
           <div>
-            <p className="text-center mb-4 text-lg">Connected as: {address}</p>
-            {!isOwner && (
-              <p className="text-blue-400 mb-4">
-                {isWhitelisted
-                  ? `You are whitelisted. Days remaining: ${remainingDays}.`
-                  : `You are not whitelisted. The whitelist subscription lasts for ${whitelistDuration} days and costs ${whitelistFee} ${account.chain?.id === NETWORKS.base.id ? NETWORKS.base.symbol : NETWORKS.electroneum.symbol}.`}
-              </p>
-            )}
+            <div className="flex flex-col justify-center items-center">
+              <p className="text-center mb-4 text-lg">Connected as: {address}</p>
+              {!isOwner && (
+                <p className="text-blue-400 mb-4">
+                  {isWhitelisted
+                    ? `You are whitelisted. Days remaining: ${remainingDays}.`
+                    : `You are not whitelisted. The whitelist subscription lasts for ${whitelistDuration} days and costs ${whitelistFee} ${account.chain?.id === NETWORKS.base.id ? NETWORKS.base.symbol : NETWORKS.electroneum.symbol}.`}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-center items-center">
+              <button
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md mb-4"
+                onClick={handleOpenHelp}
+              >
+                Help
+              </button>
+              {isHelpVisible && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+                  <div className="bg-white rounded-lg p-6 w-11/12 max-w-lg text-gray-800 shadow-lg">
+                    <h2 className="text-xl font-bold mb-4 text-center">Help</h2>
+                    <p className="mb-2 text-lg">
+                      1. Fill token CA, amount of tokens per address, and upload a CSV file with 1 wallet per line.
+                    </p>
+                    <p className="mb-2 text-lg">
+                      2. Press "Send tokens".
+                    </p>
+                    <p className="mb-2 text-lg">
+                      3. Approve all the tokens when needed (total amount will be input amount * wallets in the CSV).
+                    </p>
+                    <p className="mb-2 text-lg">
+                      4. Approve each bundled transaction of 500 wallets (check and adjust estimated gas fees before proceeding, usually it takes around $0.40 at average rates).
+                    </p>
+                    <button
+                      className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg mt-4 w-full"
+                      onClick={handleCloseHelp}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="space-y-4">
               <input
                 type="text"
@@ -277,12 +321,6 @@ export default function Home() {
                   className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md"
                 >
                   Send Tokens
-                </button>
-                <button
-                  onClick={() => disconnect()}
-                  className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md"
-                >
-                  Disconnect
                 </button>
               </div>
             </div>
