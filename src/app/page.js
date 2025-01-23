@@ -5,40 +5,197 @@ import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { createPublicClient, custom, encodeFunctionData, parseUnits } from "viem";
 import { useDropzone } from "react-dropzone";
 import Papa from "papaparse";
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
-const ContractAddress = "0x2c7d837a83356B5B9CACbf2Fb5FaC0F434B787Eb";
+const CONTRACTS = {
+  base: "0x66aC3D0cF653314F6ab797906d287d8F4D2a6667",
+  electroneum: "0x37B8c98c10bBABfCE2c00F52aB09623c710D6FE2", 
+};
+
+const NETWORKS = {
+  base: {
+    id: 8453,
+    symbol: "ETH",
+    name: "Base",
+  },
+  electroneum: {
+    id: 52014,
+    symbol: "ETN",
+    name: "Electroneum",
+  },
+};
+
 const BATCH_SIZE = 500;
 
 export default function Home() {
   const account = useAccount();
   const address = account.address;
   const isConnected = account.isConnected;
-
-  const { connect, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
+  const { connect, disconnect } = useConnect();
   const [tokenAddress, setTokenAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [csvData, setCsvData] = useState(null);
   const [fileName, setFileName] = useState("");
   const [isClient, setIsClient] = useState(false);
+  const [whitelistFee, setWhitelistFee] = useState(0);
+  const [isWhitelisted, setIsWhitelisted] = useState(false);
+  const [whitelistExpiration, setWhitelistExpiration] = useState(0);
+  const [whitelistDuration, setWhitelistDuration] = useState(0);
+  const [isOwner, setIsOwner] = useState(false);
+  const [contractAddress, setContractAddress] = useState("");
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   useEffect(() => {
-    console.log("isConnected:", isConnected);
-    if (address) {
-      console.log("Wallet connected: ", address);
+    if (isConnected) {
+      determineContractAddress();
+      fetchWhitelistStatus();
+      fetchWhitelistFee();
+      fetchWhitelistDuration();
+      fetchOwner();
     }
-  }, [address, isConnected]);
+  }, [isConnected, address, account.chain?.id]);
+
+  const determineContractAddress = () => {
+    const chainId = account.chain?.id;
+    let selectedContract = "";
+
+    if (chainId === NETWORKS.base.id) {
+      selectedContract = CONTRACTS.base; // Base mainnet
+    } else if (chainId === NETWORKS.electroneum.id) {
+      selectedContract = CONTRACTS.electroneum; // Electroneum mainnet
+    }
+
+    setContractAddress(selectedContract);
+  };
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: (acceptedFiles) => handleCSVUpload(acceptedFiles[0]),
     accept: ".csv",
     onDropRejected: () => alert("Only CSV files are accepted."),
   });
+
+  const fetchWhitelistFee = async () => {
+    if (!window.ethereum) return;
+
+    try {
+      const client = createPublicClient({
+        chain: account.chain.id,
+        transport: custom(window.ethereum),
+      });
+
+      const fee = await client.readContract({
+        address: contractAddress,
+        abi: [
+          {
+            name: "whitelistFee",
+            type: "function",
+            inputs: [],
+            outputs: [{ name: "", type: "uint256" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "whitelistFee",
+      });
+
+      setWhitelistFee(parseFloat(fee) / 1e18); 
+    } catch (error) {
+      console.error("Error fetching whitelist fee:", error);
+    }
+  };
+
+  const fetchWhitelistDuration = async () => {
+    if (!window.ethereum) return;
+
+    try {
+      const client = createPublicClient({
+        chain: account.chain.id,
+        transport: custom(window.ethereum),
+      });
+
+      const duration = await client.readContract({
+        address: contractAddress,
+        abi: [
+          {
+            name: "whitelistDuration",
+            type: "function",
+            inputs: [],
+            outputs: [{ name: "", type: "uint256" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "whitelistDuration",
+      });
+
+      setWhitelistDuration(parseInt(duration) / (24 * 60 * 60)); // Convert seconds to days
+    } catch (error) {
+      console.error("Error fetching whitelist duration:", error);
+    }
+  };
+
+  const fetchWhitelistStatus = async () => {
+    if (!window.ethereum) return;
+
+    try {
+      const client = createPublicClient({
+        chain: account.chain.id,
+        transport: custom(window.ethereum),
+      });
+
+      const expiration = await client.readContract({
+        address: contractAddress,
+        abi: [
+          {
+            name: "whitelist",
+            type: "function",
+            inputs: [{ name: "user", type: "address" }],
+            outputs: [{ name: "", type: "uint256" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "whitelist",
+        args: [address],
+      });
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      setWhitelistExpiration(parseInt(expiration));
+
+      setIsWhitelisted(currentTime < expiration);
+    } catch (error) {
+      console.error("Error fetching whitelist status:", error);
+    }
+  };
+
+  const fetchOwner = async () => {
+    if (!window.ethereum) return;
+
+    try {
+      const client = createPublicClient({
+        chain: account.chain.id,
+        transport: custom(window.ethereum),
+      });
+
+      const contractOwner = await client.readContract({
+        address: contractAddress,
+        abi: [
+          {
+            name: "owner",
+            type: "function",
+            inputs: [],
+            outputs: [{ name: "", type: "address" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "owner",
+      });
+
+      setIsOwner(contractOwner.toLowerCase() === address.toLowerCase());
+    } catch (error) {
+      console.error("Error fetching contract owner:", error);
+    }
+  };
 
   const handleCSVUpload = (file) => {
     setFileName(file.name);
@@ -51,150 +208,17 @@ export default function Home() {
     });
   };
 
-  const waitForTransactionConfirmation = async (txHash) => {
-    let receipt = null;
+  const calculateRemainingDays = () => {
+    if (!whitelistExpiration) return 0;
 
-    while (receipt === null) {
-      receipt = await window.ethereum.request({
-        method: "eth_getTransactionReceipt",
-        params: [txHash],
-      });
+    const currentTime = Math.floor(Date.now() / 1000);
+    const remainingTime = whitelistExpiration - currentTime;
 
-      if (receipt === null) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      }
-    }
-
-    return receipt;
+    return remainingTime > 0 ? Math.ceil(remainingTime / (24 * 60 * 60)) : 0;
   };
 
-  const handleSendTokens = async () => {
-    if (!csvData || !tokenAddress || !amount || !isConnected) return;
-  
-    const recipients = csvData.map((row) => row[0]);
-    const recipientBatches = [];
-    for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
-      recipientBatches.push(recipients.slice(i, i + BATCH_SIZE));
-    }
-  
-    try {
-      if (!window.ethereum) {
-        throw new Error("Ethereum provider not found");
-      }
-  
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-  
-      const client = createPublicClient({
-        chain: account.chain.id,
-        transport: custom(window.ethereum),
-      });
-  
-      const allowanceResponse = await client.readContract({
-        address: tokenAddress,
-        abi: [
-          {
-            name: "allowance",
-            type: "function",
-            inputs: [
-              { name: "owner", type: "address" },
-              { name: "spender", type: "address" },
-            ],
-            outputs: [{ name: "remaining", type: "uint256" }],
-            stateMutability: "view",
-          },
-        ],
-        functionName: "allowance",
-        args: [address, ContractAddress],
-      });
-  
-      console.log("Allowance from contract:", allowanceResponse);
-  
-      const allowance = BigInt(allowanceResponse);
-  
-      const requiredAmount = parseUnits((amount * recipients.length).toString(), 18);
-  
-      if (allowance < requiredAmount) {
-        const approveData = encodeFunctionData({
-          abi: [
-            {
-              name: "approve",
-              type: "function",
-              inputs: [
-                { name: "spender", type: "address" },
-                { name: "amount", type: "uint256" },
-              ],
-            },
-          ],
-          functionName: "approve",
-          args: [ContractAddress, requiredAmount],
-        });
-  
-        const approveTx = {
-          to: tokenAddress,
-          from: address,
-          data: approveData,
-          value: 0n,
-        };
-  
-        const approveTxHash = await window.ethereum.request({
-          method: "eth_sendTransaction",
-          params: [approveTx],
-        });
-  
-        console.log("Approval transaction sent: ", approveTxHash);
-  
-        const approveReceipt = await waitForTransactionConfirmation(approveTxHash);
-  
-        if (approveReceipt.status !== "0x1") {
-          throw new Error("Approval transaction failed");
-        }
-  
-        console.log("Approval transaction confirmed");
-      } else {
-        console.log("Allowance is sufficient, skipping approval.");
-      }
-  
-      for (let i = 0; i < recipientBatches.length; i++) {
-        const batch = recipientBatches[i];
-  
-        const sendData = encodeFunctionData({
-          abi: [
-            {
-              name: "sendBatchFunds",
-              type: "function",
-              inputs: [
-                { name: "tokenAddress", type: "address" },
-                { name: "recipients", type: "address[]" },
-                { name: "amount", type: "uint256" },
-              ],
-            },
-          ],
-          functionName: "sendBatchFunds",
-          args: [tokenAddress, batch, parseUnits(amount, 18)],
-        });
-  
-        const sendTx = {
-          to: ContractAddress,
-          from: address,
-          data: sendData,
-          value: 0n,
-        };
-  
-        const sendTxHash = await window.ethereum.request({
-          method: "eth_sendTransaction",
-          params: [sendTx],
-        });
-  
-        console.log("Batch tokens sent (batch " + (i + 1) + "): ", sendTxHash);
-      }
-  
-      alert("Tokens successfully sent!");
-    } catch (err) {
-      console.error("Error sending tokens:", err);
-      alert(`Error: ${err.message}`);
-    }
-  };
-  
+  const remainingDays = calculateRemainingDays();
+
   if (!isClient) return null;
 
   return (
@@ -208,7 +232,13 @@ export default function Home() {
         ) : (
           <div>
             <p className="text-center mb-4 text-lg">Connected as: {address}</p>
-
+            {!isOwner && (
+              <p className="text-blue-400 mb-4">
+                {isWhitelisted
+                  ? `You are whitelisted. Days remaining: ${remainingDays}.`
+                  : `You are not whitelisted. The whitelist subscription lasts for ${whitelistDuration} days and costs ${whitelistFee} ${account.chain?.id === NETWORKS.base.id ? NETWORKS.base.symbol : NETWORKS.electroneum.symbol}.`}
+              </p>
+            )}
             <div className="space-y-4">
               <input
                 type="text"
@@ -232,7 +262,6 @@ export default function Home() {
 
               <div className="space-x-4 flex justify-center mt-4">
                 <button
-                  onClick={handleSendTokens}
                   className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg shadow-md"
                 >
                   Send Tokens
