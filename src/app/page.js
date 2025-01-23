@@ -277,7 +277,7 @@ export default function Home() {
                       1. Fill token CA, amount of tokens per address, and upload a CSV file with 1 wallet per line.
                     </p>
                     <p className="mb-2 text-lg">
-                      2. Press "Send tokens".
+                      2. Press &quot;Send tokens&quot;.
                     </p>
                     <p className="mb-2 text-lg">
                       3. Approve all the tokens when needed (total amount will be input amount * wallets in the CSV).
