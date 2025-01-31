@@ -60,11 +60,11 @@ export default function Home() {
   
 
   useEffect(() => {
-    if (!hasFetched && isConnected) {
+    if (!hasFetched) {
       updateWhitelistData();
-      setHasFetched(true); 
+
     }
-  }, [isConnected]);
+  }, [whitelistDuration]);
 
 
   const updateWhitelistData = async () => {
