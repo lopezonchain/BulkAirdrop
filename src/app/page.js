@@ -271,9 +271,7 @@ export default function Home() {
               <p className="text-center mb-4 text-lg">Connected as: {address}</p>
               {!isOwner && (
                 <p className="text-blue-400 mb-4">
-                  {isWhitelisted === null
-                    ? "Loading whitelist status..."
-                    : isWhitelisted
+                  {isWhitelisted
                     ? `You are whitelisted. Days remaining: ${remainingDays !== null ? remainingDays : "..."}.`
                     : `You are not whitelisted. The whitelist subscription lasts for ${
                         whitelistDuration !== null ? whitelistDuration : "..."
