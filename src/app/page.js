@@ -44,6 +44,7 @@ export default function Home() {
   const [isOwner, setIsOwner] = useState(false);
   const [contractAddress, setContractAddress] = useState("");
   const [isHelpVisible, setIsHelpVisible] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -54,8 +55,17 @@ export default function Home() {
       determineContractAddress();
       fetchOwner();
     }
-    updateWhitelistData();
-  }, [isConnected, address, account.chain?.id, whitelistFee, whitelistExpiration, whitelistDuration]);
+  }, [isConnected, address, account.chain?.id]);
+
+  
+
+  useEffect(() => {
+    if (!hasFetched && isConnected) {
+      updateWhitelistData();
+      setHasFetched(true); 
+    }
+  }, [isConnected]);
+
 
   const updateWhitelistData = async () => {
     setIsWhitelisted(null);
