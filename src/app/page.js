@@ -63,13 +63,12 @@ export default function Home() {
     setWhitelistDuration(null);
   
     try {
-      const [status, fee, duration] = await Promise.all([
+      await Promise.all([
         fetchWhitelistStatus(),
         fetchWhitelistFee(),
         fetchWhitelistDuration(),
       ]);
       
-      console.log("✅ Whitelist data updated:", { status, fee, duration });
     } catch (error) {
       console.error("❌ Error updating whitelist data:", error);
     }
