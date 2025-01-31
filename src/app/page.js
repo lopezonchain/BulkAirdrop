@@ -44,7 +44,6 @@ export default function Home() {
   const [isOwner, setIsOwner] = useState(false);
   const [contractAddress, setContractAddress] = useState("");
   const [isHelpVisible, setIsHelpVisible] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -61,9 +60,7 @@ export default function Home() {
   
 
   useEffect(() => {
-    if (!hasFetched) {
-      updateWhitelistData();
-    }
+    updateWhitelistData();
   }, [whitelistExpiration,whitelistDuration, whitelistFee]);
 
 
