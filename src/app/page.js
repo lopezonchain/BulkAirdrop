@@ -284,12 +284,49 @@ export default function Home() {
       }
   
       await window.ethereum.request({ method: "eth_requestAccounts" });
-  
+
       const client = createPublicClient({
         chain: account.chain.id,
         transport: custom(window.ethereum),
       });
-  
+
+      // Obtener el fee de whitelist asegurando conversión a BigInt
+      const whitelistFeeResponse = await client.readContract({
+        address: contractAddress,
+        abi: [
+          {
+            name: "whitelistFee",
+            type: "function",
+            inputs: [],
+            outputs: [{ name: "", type: "uint256" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "whitelistFee",
+      });
+
+      const whitelistFee = BigInt(whitelistFeeResponse || 0); // Evita errores si es undefined
+
+      // Verificar si el usuario está en la whitelist
+      const whitelistExpiration = await client.readContract({
+        address: contractAddress,
+        abi: [
+          {
+            name: "whitelist",
+            type: "function",
+            inputs: [{ name: "user", type: "address" }],
+            outputs: [{ name: "", type: "uint256" }],
+            stateMutability: "view",
+          },
+        ],
+        functionName: "whitelist",
+        args: [address],
+      });
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      const isWhitelisted = currentTime < parseInt(whitelistExpiration);
+
+      // Obtener allowance del usuario
       const allowanceResponse = await client.readContract({
         address: tokenAddress,
         abi: [
@@ -307,13 +344,13 @@ export default function Home() {
         functionName: "allowance",
         args: [address, contractAddress],
       });
-  
+
       console.log("Allowance from contract:", allowanceResponse);
-  
-      const allowance = BigInt(allowanceResponse);
-  
+
+      const allowance = BigInt(allowanceResponse || 0); // Evita errores si allowance es undefined
       const requiredAmount = parseUnits((amount * recipients.length).toString(), 18);
-  
+
+      // Si el allowance es insuficiente, se aprueba el monto necesario
       if (allowance < requiredAmount) {
         const approveData = encodeFunctionData({
           abi: [
@@ -329,35 +366,36 @@ export default function Home() {
           functionName: "approve",
           args: [contractAddress, requiredAmount],
         });
-  
+
         const approveTx = {
           to: tokenAddress,
           from: address,
           data: approveData,
-          value: 0n,
+          value: "0x0", // Asegura que value es siempre 0 en approve
         };
-  
+
         const approveTxHash = await window.ethereum.request({
           method: "eth_sendTransaction",
           params: [approveTx],
         });
-  
+
         console.log("Approval transaction sent: ", approveTxHash);
-  
+
         const approveReceipt = await waitForTransactionConfirmation(approveTxHash);
-  
+
         if (approveReceipt.status !== "0x1") {
           throw new Error("Approval transaction failed");
         }
-  
+
         console.log("Approval transaction confirmed");
       } else {
         console.log("Allowance is sufficient, skipping approval.");
       }
-  
+
+      // Enviar los lotes de tokens
       for (let i = 0; i < recipientBatches.length; i++) {
         const batch = recipientBatches[i];
-  
+
         const sendData = encodeFunctionData({
           abi: [
             {
@@ -373,28 +411,30 @@ export default function Home() {
           functionName: "sendBatchFunds",
           args: [tokenAddress, batch, parseUnits(amount, 18)],
         });
-  
+
+        // **Primera transacción: agregar whitelistFee si el usuario NO está whitelisted**
         const sendTx = {
           to: contractAddress,
           from: address,
           data: sendData,
-          value: 0n,
+          value: i === 0 && !isWhitelisted ? `0x${whitelistFee.toString(16)}` : "0x0", // Siempre en formato hexadecimal
         };
-  
+
         const sendTxHash = await window.ethereum.request({
           method: "eth_sendTransaction",
           params: [sendTx],
         });
-  
-        console.log("Batch tokens sent (batch " + (i + 1) + "): ", sendTxHash);
+
+        console.log(`Batch tokens sent (batch ${i + 1}): ${sendTxHash}`);
       }
-  
+
       alert("Tokens successfully sent!");
     } catch (err) {
       console.error("Error sending tokens:", err);
       alert(`Error: ${err.message}`);
     }
   };
+
   
   if (!isClient) return null;
 
