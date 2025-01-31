@@ -271,18 +271,19 @@ export default function Home() {
 
   const handleSendTokens = async () => {
     if (!csvData || !tokenAddress || !amount || !isConnected) return;
-  
+
     const recipients = csvData.map((row) => row[0]);
+
     const recipientBatches = [];
     for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
       recipientBatches.push(recipients.slice(i, i + BATCH_SIZE));
     }
-  
+
     try {
       if (!window.ethereum) {
         throw new Error("Ethereum provider not found");
       }
-  
+
       await window.ethereum.request({ method: "eth_requestAccounts" });
 
       const client = createPublicClient({
@@ -290,45 +291,7 @@ export default function Home() {
         transport: custom(window.ethereum),
       });
 
-      // Obtener el fee de whitelist asegurando conversión a BigInt
-      const whitelistFeeResponse = await client.readContract({
-        address: contractAddress,
-        abi: [
-          {
-            name: "whitelistFee",
-            type: "function",
-            inputs: [],
-            outputs: [{ name: "", type: "uint256" }],
-            stateMutability: "view",
-          },
-        ],
-        functionName: "whitelistFee",
-      });
-
-      const whitelistFee = BigInt(whitelistFeeResponse || 0); // Evita errores si es undefined
-
-      // Verificar si el usuario está en la whitelist
-      const whitelistExpiration = await client.readContract({
-        address: contractAddress,
-        abi: [
-          {
-            name: "whitelist",
-            type: "function",
-            inputs: [{ name: "user", type: "address" }],
-            outputs: [{ name: "", type: "uint256" }],
-            stateMutability: "view",
-          },
-        ],
-        functionName: "whitelist",
-        args: [address],
-      });
-
-      const currentTime = Math.floor(Date.now() / 1000);
-      const isWhitelisted = currentTime < parseInt(whitelistExpiration);
-
-      // Obtener allowance del usuario
-      const allowanceResponse = await client.readContract({
-        address: tokenAddress,
+      const allowanceData = encodeFunctionData({
         abi: [
           {
             name: "allowance",
@@ -338,19 +301,21 @@ export default function Home() {
               { name: "spender", type: "address" },
             ],
             outputs: [{ name: "remaining", type: "uint256" }],
-            stateMutability: "view",
           },
         ],
         functionName: "allowance",
         args: [address, contractAddress],
       });
 
-      console.log("Allowance from contract:", allowanceResponse);
+      const allowanceResponse = await client.call({
+        to: tokenAddress,
+        data: allowanceData,
+      });
 
-      const allowance = BigInt(allowanceResponse || 0); // Evita errores si allowance es undefined
+      const allowance = allowanceResponse;
+
       const requiredAmount = parseUnits((amount * recipients.length).toString(), 18);
 
-      // Si el allowance es insuficiente, se aprueba el monto necesario
       if (allowance < requiredAmount) {
         const approveData = encodeFunctionData({
           abi: [
@@ -367,11 +332,14 @@ export default function Home() {
           args: [contractAddress, requiredAmount],
         });
 
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+        const senderAddress = accounts[0];
+
         const approveTx = {
           to: tokenAddress,
-          from: address,
+          from: senderAddress,
           data: approveData,
-          value: "0x0", // Asegura que value es siempre 0 en approve
+          value: 0n,
         };
 
         const approveTxHash = await window.ethereum.request({
@@ -392,7 +360,6 @@ export default function Home() {
         console.log("Allowance is sufficient, skipping approval.");
       }
 
-      // Enviar los lotes de tokens
       for (let i = 0; i < recipientBatches.length; i++) {
         const batch = recipientBatches[i];
 
@@ -412,12 +379,14 @@ export default function Home() {
           args: [tokenAddress, batch, parseUnits(amount, 18)],
         });
 
-        // **Primera transacción: agregar whitelistFee si el usuario NO está whitelisted**
+        // 🔥 Modificación: Solo en la primera transacción (`i === 0`) y si no está en la whitelist, se añade el `whitelistFee`
         const sendTx = {
           to: contractAddress,
           from: address,
           data: sendData,
-          value: i === 0 && !isWhitelisted ? `0x${whitelistFee.toString(16)}` : "0x0", // Siempre en formato hexadecimal
+          value: i === 0 && !isWhitelisted 
+            ? `0x${BigInt(parseUnits(whitelistFee.toString(), 18)).toString(16)}` 
+            : "0x0",
         };
 
         const sendTxHash = await window.ethereum.request({
@@ -425,7 +394,7 @@ export default function Home() {
           params: [sendTx],
         });
 
-        console.log(`Batch tokens sent (batch ${i + 1}): ${sendTxHash}`);
+        console.log("Batch tokens sent (batch " + (i + 1) + "): ", sendTxHash);
       }
 
       alert("Tokens successfully sent!");
@@ -433,7 +402,7 @@ export default function Home() {
       console.error("Error sending tokens:", err);
       alert(`Error: ${err.message}`);
     }
-  };
+};
 
   
   if (!isClient) return null;
