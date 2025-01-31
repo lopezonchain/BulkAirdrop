@@ -54,6 +54,7 @@ export default function Home() {
     if (isConnected) {
       determineContractAddress();
       fetchOwner();
+      updateWhitelistData();
     }
   }, [isConnected, address, account.chain?.id]);
 
@@ -62,9 +63,8 @@ export default function Home() {
   useEffect(() => {
     if (!hasFetched) {
       updateWhitelistData();
-
     }
-  }, [whitelistDuration]);
+  }, [whitelistExpiration,whitelistDuration, whitelistFee]);
 
 
   const updateWhitelistData = async () => {
