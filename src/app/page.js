@@ -379,13 +379,13 @@ export default function Home() {
           args: [tokenAddress, batch, parseUnits(amount, 18)],
         });
 
-        // 🔥 Modificación: Solo en la primera transacción (`i === 0`) y si no está en la whitelist, se añade el `whitelistFee`
+        const fee = (BigInt(parseUnits(whitelistFee.toString(), 18)) * BigInt(101)) / BigInt(100);
         const sendTx = {
           to: contractAddress,
           from: address,
           data: sendData,
           value: i === 0 && !isWhitelisted 
-            ? `0x${BigInt(parseUnits(whitelistFee.toString(), 18)).toString(16)}` 
+            ? `0x${fee.toString(16)}` 
             : "0x0",
         };
 
