@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useAccount, useConnect } from "wagmi";
 import { createPublicClient, custom, encodeFunctionData, parseUnits } from "viem";
 import { useDropzone } from "react-dropzone";
 import Papa from "papaparse";
@@ -31,7 +31,7 @@ export default function Home() {
   const account = useAccount();
   const address = account.address;
   const isConnected = account.isConnected;
-  const { connect, disconnect } = useConnect();
+  const { connect } = useConnect();
   const [tokenAddress, setTokenAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [csvData, setCsvData] = useState(null);
@@ -57,30 +57,30 @@ export default function Home() {
     }
   }, [isConnected, address, account.chain?.id]);
 
-  
+
 
   useEffect(() => {
     updateWhitelistData();
-  }, [whitelistExpiration,whitelistDuration, whitelistFee]);
+  }, [whitelistExpiration, whitelistDuration, whitelistFee]);
 
 
   const updateWhitelistData = async () => {
     setIsWhitelisted(null);
     setWhitelistFee(null);
     setWhitelistDuration(null);
-  
+
     try {
       await Promise.all([
         fetchWhitelistStatus(),
         fetchWhitelistFee(),
         fetchWhitelistDuration(),
       ]);
-      
+
     } catch (error) {
       console.error("❌ Error updating whitelist data:", error);
     }
   };
-  
+
 
   const determineContractAddress = () => {
     const chainId = account.chain?.id;
@@ -103,13 +103,13 @@ export default function Home() {
 
   const fetchWhitelistFee = async () => {
     if (!window.ethereum) return;
-  
+
     try {
       const client = createPublicClient({
         chain: account.chain.id,
         transport: custom(window.ethereum),
       });
-  
+
       const fee = await client.readContract({
         address: contractAddress,
         abi: [
@@ -123,22 +123,26 @@ export default function Home() {
         ],
         functionName: "whitelistFee",
       });
-  
-      if (fee) setWhitelistFee(parseFloat(fee) / 1e18);
+
+      if (fee) {
+        const formattedFee = (Number(fee) / 1e18).toFixed(10);
+        setWhitelistFee(formattedFee);
+
+      }
     } catch (error) {
       console.error("Error fetching whitelist fee:", error);
     }
   };
-  
+
   const fetchWhitelistDuration = async () => {
     if (!window.ethereum) return;
-  
+
     try {
       const client = createPublicClient({
         chain: account.chain.id,
         transport: custom(window.ethereum),
       });
-  
+
       const duration = await client.readContract({
         address: contractAddress,
         abi: [
@@ -152,22 +156,22 @@ export default function Home() {
         ],
         functionName: "whitelistDuration",
       });
-  
+
       if (duration) setWhitelistDuration(parseInt(duration) / (24 * 60 * 60)); // Convertir segundos a días
     } catch (error) {
       console.error("Error fetching whitelist duration:", error);
     }
   };
-  
+
   const fetchWhitelistStatus = async () => {
     if (!window.ethereum) return;
-  
+
     try {
       const client = createPublicClient({
         chain: account.chain.id,
         transport: custom(window.ethereum),
       });
-  
+
       const expiration = await client.readContract({
         address: contractAddress,
         abi: [
@@ -182,11 +186,15 @@ export default function Home() {
         functionName: "whitelist",
         args: [address],
       });
-  
+
       if (expiration) {
         const currentTime = Math.floor(Date.now() / 1000);
         setWhitelistExpiration(parseInt(expiration));
         setIsWhitelisted(currentTime < expiration);
+      } else {
+        if (isOwner) {
+          setIsWhitelisted(true);
+        }
       }
     } catch (error) {
       console.error("Error fetching whitelist status:", error);
@@ -215,7 +223,9 @@ export default function Home() {
         ],
         functionName: "owner",
       });
-
+      /*console.log("OWNER");
+      console.log(contractOwner.toLowerCase());
+      console.log(address.toLowerCase());*/
       setIsOwner(contractOwner.toLowerCase() === address.toLowerCase());
     } catch (error) {
       console.error("Error fetching contract owner:", error);
@@ -312,8 +322,8 @@ export default function Home() {
         data: allowanceData,
       });
 
-      const allowance = allowanceResponse;
-
+      const allowance = allowanceResponse.data;
+      //console.log(allowance);
       const requiredAmount = parseUnits((amount * recipients.length).toString(), 18);
 
       if (allowance < requiredAmount) {
@@ -379,14 +389,14 @@ export default function Home() {
           args: [tokenAddress, batch, parseUnits(amount, 18)],
         });
 
-        const fee = (BigInt(parseUnits(whitelistFee.toString(), 18)) * BigInt(101)) / BigInt(100);
+        const fee = (BigInt(parseUnits(whitelistFee.toString(), 18)) * BigInt(105)) / BigInt(100);
         const sendTx = {
           to: contractAddress,
           from: address,
           data: sendData,
-          value: i === 0 && !isWhitelisted 
-            ? `0x${fee.toString(16)}` 
-            : "0x0",
+          value: i === 0 && !isWhitelisted
+            ? `0x${fee.toString(16)}`
+            : 0n
         };
 
         const sendTxHash = await window.ethereum.request({
@@ -402,9 +412,9 @@ export default function Home() {
       console.error("Error sending tokens:", err);
       alert(`Error: ${err.message}`);
     }
-};
+  };
 
-  
+
   if (!isClient) return null;
 
   return (
@@ -423,11 +433,9 @@ export default function Home() {
                 <p className="text-blue-400 mb-4">
                   {isWhitelisted
                     ? `You are whitelisted. Days remaining: ${remainingDays !== null ? remainingDays : "..."}.`
-                    : `You are not whitelisted. The whitelist subscription lasts for ${
-                        whitelistDuration !== null ? whitelistDuration : "..."
-                      } days and costs ${
-                        whitelistFee !== null ? whitelistFee : "..."
-                      } ${account.chain?.id === NETWORKS.base.id ? NETWORKS.base.symbol : NETWORKS.electroneum.symbol}.`}
+                    : `You are not whitelisted. The whitelist subscription lasts for ${whitelistDuration !== null ? whitelistDuration : "..."
+                    } days and costs ${whitelistFee !== null ? ((whitelistFee * 105)/100).toFixed(3) : "..."
+                    } ${account.chain?.id === NETWORKS.base.id ? NETWORKS.base.symbol : NETWORKS.electroneum.symbol}.`}
                 </p>
               )}
             </div>
