@@ -251,16 +251,16 @@ export default function Home() {
     setIsHelpVisible(false);
   };
 
-  const calculateRemainingDays = () => {
+  const calculateRemainingHours = () => {
     if (!whitelistExpiration) return 0;
 
     const currentTime = Math.floor(Date.now() / 1000);
     const remainingTime = whitelistExpiration - currentTime;
 
-    return remainingTime > 0 ? Math.ceil(remainingTime / (24 * 60 * 60)) : 0;
+    return remainingTime > 0 ? Math.ceil(remainingTime / (24 * 60)) : 0;
   };
 
-  const remainingDays = calculateRemainingDays();
+  const remainingHours = calculateremainingHours();
 
   const waitForTransactionConfirmation = async (txHash) => {
     let receipt = null;
@@ -432,9 +432,9 @@ export default function Home() {
               {!isOwner && (
                 <p className="text-blue-400 mb-4">
                   {isWhitelisted
-                    ? `You are whitelisted. Days remaining: ${remainingDays !== null ? remainingDays : "..."}.`
+                    ? `You are whitelisted. Days remaining: ${remainingHours !== null ? remainingHours : "..."}.`
                     : `You are not whitelisted. The whitelist subscription lasts for ${whitelistDuration !== null ? whitelistDuration : "..."
-                    } days and costs ${whitelistFee !== null ? ((whitelistFee * 105)/100).toFixed(3) : "..."
+                    } days and costs ${whitelistFee !== null ? ((whitelistFee * 105)/100).toFixed(0) : "..."
                     } ${account.chain?.id === NETWORKS.base.id ? NETWORKS.base.symbol : NETWORKS.electroneum.symbol}.`}
                 </p>
               )}
