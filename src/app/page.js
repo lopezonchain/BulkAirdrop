@@ -260,7 +260,7 @@ export default function Home() {
     return remainingTime > 0 ? Math.ceil(remainingTime / (24 * 60)) : 0;
   };
 
-  const remainingHours = calculateremainingHours();
+  const remainingHours = calculateRemainingHours();
 
   const waitForTransactionConfirmation = async (txHash) => {
     let receipt = null;
@@ -432,9 +432,9 @@ export default function Home() {
               {!isOwner && (
                 <p className="text-blue-400 mb-4">
                   {isWhitelisted
-                    ? `You are whitelisted. Days remaining: ${remainingHours !== null ? remainingHours : "..."}.`
+                    ? `You are whitelisted. Hours remaining: ${remainingHours !== null ? remainingHours : "..."}.`
                     : `You are not whitelisted. The whitelist subscription lasts for ${whitelistDuration !== null ? whitelistDuration : "..."
-                    } days and costs ${whitelistFee !== null ? ((whitelistFee * 105)/100).toFixed(0) : "..."
+                    } hours and costs ${whitelistFee !== null ? ((whitelistFee * 105)/100).toFixed(0) : "..."
                     } ${account.chain?.id === NETWORKS.base.id ? NETWORKS.base.symbol : NETWORKS.electroneum.symbol}.`}
                 </p>
               )}
