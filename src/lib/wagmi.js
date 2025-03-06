@@ -29,10 +29,10 @@ const etn = {
 const config = getDefaultConfig({
   appName: 'Buddy',
   projectId: '91e4298f4ed8aa463e3565e8116a943f',
-  chains: [base, etn],
+  chains: [etn, base],
   transports: {
-    [base.id]: http('https://rpc.ankr.com/base'),
     [etn.id]: http('https://rpc.ankr.com/electroneum'),
+    [base.id]: http('https://rpc.ankr.com/base'),
   },
 });
 
