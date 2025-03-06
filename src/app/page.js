@@ -157,7 +157,7 @@ export default function Home() {
         functionName: "whitelistDuration",
       });
 
-      if (duration) setWhitelistDuration(parseInt(duration) / (24 * 60 * 60)); // Convertir segundos a días
+      if (duration) setWhitelistDuration(parseInt(duration) / (60 * 60));
     } catch (error) {
       console.error("Error fetching whitelist duration:", error);
     }
@@ -257,7 +257,7 @@ export default function Home() {
     const currentTime = Math.floor(Date.now() / 1000);
     const remainingTime = whitelistExpiration - currentTime;
 
-    return remainingTime > 0 ? Math.ceil(remainingTime / (24 * 60)) : 0;
+    return remainingTime > 0 ? Math.ceil(remainingTime / (60 * 60)) : 0;
   };
 
   const remainingHours = calculateRemainingHours();
