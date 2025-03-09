@@ -460,7 +460,7 @@ export default function Home() {
                       3. Approve all the tokens when needed (total amount will be input amount * wallets in the CSV).
                     </p>
                     <p className="mb-2 text-lg">
-                      4. Approve each bundled transaction of 500 wallets (check and adjust estimated gas fees before proceeding, usually it takes around $0.40 at average rates).
+                      4. Approve each bundled transaction of 500 wallets (check and adjust estimated gas fees before proceeding).
                     </p>
                     <button
                       className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg mt-4 w-full"
