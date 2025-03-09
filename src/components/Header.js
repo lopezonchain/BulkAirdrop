@@ -71,7 +71,7 @@ const Header = () => {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <nav className="lg:hidden fixed top-20 left-0 w-full bg-[#3a33aa] text-white shadow-md flex flex-col items-center space-y-4 py-4">
+        <nav className="lg:hidden fixed top-20 left-0 w-full h-[calc(100vh-5rem)] z-20 bg-[#3a33aa] text-white shadow-md flex flex-col justify-evenly items-center space-y-4 py-4">
           {navLinks.map((link) => (
             <Link
               key={link.name}
