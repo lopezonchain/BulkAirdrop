@@ -434,7 +434,7 @@ export default function Home() {
                   {isWhitelisted
                     ? `You are whitelisted. Hours remaining: ${remainingHours !== null ? remainingHours : "..."}.`
                     : `You are not whitelisted. The whitelist subscription lasts for ${whitelistDuration !== null ? whitelistDuration : "..."
-                    } hours and costs ${whitelistFee !== null ? ((whitelistFee * 105)/100).toFixed(0) : "..."
+                    } hours and costs ${whitelistFee !== null ? ((whitelistFee * 105)/100).toFixed(0) : "0"
                     } ${account.chain?.id === NETWORKS.base.id ? NETWORKS.base.symbol : NETWORKS.electroneum.symbol}.`}
                 </p>
               )}
